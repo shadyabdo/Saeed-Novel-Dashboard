@@ -569,6 +569,156 @@
         .hidden {
             display: none !important;
         }
+
+        /* Preview Panel */
+        .preview-panel {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1100;
+        }
+
+        .preview-panel.active {
+            display: flex;
+        }
+
+        .preview-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+        }
+
+        .preview-content {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 60%;
+            max-width: 800px;
+            height: 100%;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--glass-border);
+            overflow-y: auto;
+            animation: slideInRight 0.3s ease;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 24px;
+            border-bottom: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .preview-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .preview-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 2rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .preview-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+        }
+
+        .preview-body {
+            padding: 30px;
+        }
+
+        .preview-chapter-info {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .preview-chapter-title {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 12px;
+        }
+
+        .preview-chapter-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .preview-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .preview-meta-item i {
+            color: var(--accent);
+        }
+
+        .preview-chapter-content {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 30px;
+            line-height: 2;
+            font-size: 1.1rem;
+            white-space: pre-wrap;
+            text-align: right;
+            direction: rtl;
+        }
+
+        @media (max-width: 968px) {
+            .preview-content {
+                width: 85%;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .preview-content {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -814,6 +964,22 @@
                     <button type="submit" class="btn btn-primary">حفظ المجلد</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Preview Panel -->
+    <div class="preview-panel" id="previewPanel">
+        <div class="preview-overlay" onclick="closePreview()"></div>
+        <div class="preview-content">
+            <div class="preview-header">
+                <h3 class="preview-title">معاينة الفصل</h3>
+                <button class="preview-close" onclick="closePreview()">&times;</button>
+            </div>
+            <div class="preview-body" id="previewBody">
+                <div class="loading">
+                    <div class="spinner"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1200,8 +1366,57 @@
         window.viewChapter = async (id) => {
             const chapter = chapters.find(ch => ch.id === id);
             if (chapter) {
-                alert(`الفصل ${chapter.number}: ${chapter.title}\n\n${chapter.content.substring(0, 500)}...`);
+                openPreview(chapter);
             }
+        };
+
+        function openPreview(chapter) {
+            const previewPanel = document.getElementById('previewPanel');
+            const previewBody = document.getElementById('previewBody');
+            
+            // Find novel and folder info
+            const novel = novels.find(n => n.id === chapter.novelId);
+            const folder = folders.find(f => f.id === chapter.folderId);
+            
+            previewBody.innerHTML = `
+                <div class="preview-chapter-info">
+                    <h2 class="preview-chapter-title">${chapter.title}</h2>
+                    <div class="preview-chapter-meta">
+                        <div class="preview-meta-item">
+                            <span>📖</span>
+                            <span>${novel ? novel.titleAr : 'غير معروف'}</span>
+                        </div>
+                        <div class="preview-meta-item">
+                            <span>📝</span>
+                            <span>الفصل ${chapter.number}</span>
+                        </div>
+                        ${folder ? `
+                        <div class="preview-meta-item">
+                            <span>📁</span>
+                            <span>${folder.name}</span>
+                        </div>
+                        ` : ''}
+                        <div class="preview-meta-item">
+                            <span>📊</span>
+                            <span>${chapter.wordCount || 0} كلمة</span>
+                        </div>
+                        <div class="preview-meta-item">
+                            <span>📅</span>
+                            <span>${new Date(chapter.createdAt?.seconds * 1000 || Date.now()).toLocaleDateString('ar-EG')}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="preview-chapter-content">${chapter.content}</div>
+            `;
+            
+            previewPanel.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        window.closePreview = () => {
+            const previewPanel = document.getElementById('previewPanel');
+            previewPanel.classList.remove('active');
+            document.body.style.overflow = '';
         };
 
         window.editChapter = async (id) => {
